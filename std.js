@@ -33,3 +33,14 @@ await Activity.create({
   action: 'upload',
   file: file._id
 });
+
+app.get('/files/search', async (req, res) => {
+  const { name, type, owner } = req.query;
+  const query = {};
+  if(name) query.name = { $regex: name, $options: 'i' };
+  if(type) query.type = type;
+  if(owner) query.owner = owner;
+  
+  const files = await File.find(query);
+  res.json(files);
+});
