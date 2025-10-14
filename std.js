@@ -1,39 +1,65 @@
+const express = require('express');
+const app = express();
+const fs = require('fs');
+const path = require('path');
+const { body, validationResult } = require('express-validator');
+
 const authRoutes = require('./routes/auth');
-app.use('/', authRoutes);
-
-
-// const roleCheck = require('./middleware/roleCheck');
-// app.get('/admin-dashboard', roleCheck('admin'), (req, res) => {
-//   res.send('Admin dashboard');
-// });
-
 const accessCheck = require('./middleware/accessCheck');
-app.delete('/file/:id', accessCheck, deleteFileHandler);
-
-
+const roleCheck = require('./middleware/roleCheck');
 const { getPresignedUrl } = require('./utils/s3');
 
+const User = require('./models/userModel');
+const File = require('./models/fileModel');
+const Activity = require('./models/activityModel');
+const Notification = require('./models/notificationModel');
+const deleteFileHandler = require('./controllers/deleteFileHandler'); // adjust path if needed
+
+app.use(express.json());
+app.use('/', authRoutes);
+
+// =================== File Routes ===================
+
+// Delete file with access check
+app.delete('/file/:id', accessCheck, deleteFileHandler);
+
+// Download file via pre-signed URL
 app.get('/file/download/:key', (req, res) => {
   const url = getPresignedUrl(req.params.key);
   res.redirect(url);
 });
 
-file.versions.push({
-  key: file.key,
-  uploadedAt: new Date(),
-  uploadedBy: req.user._id
+// Upload route example (versions & activity logging)
+app.post('/file/upload', async (req, res) => {
+  const file = req.file; // assuming multer or similar
+  const user = req.user;
+
+  // Add previous version
+  if (file.previous) {
+    file.versions.push({
+      key: file.key,
+      uploadedAt: new Date(),
+      uploadedBy: user._id
+    });
+  }
+
+  await file.save();
+
+  // Log activity
+  await Activity.create({
+    user: user._id,
+    action: 'upload',
+    file: file._id
+  });
+
+  // Update user storage
+  user.storageUsed += file.size;
+  await user.save();
+
+  res.json({ message: 'File uploaded successfully' });
 });
-await file.save();
 
-const Activity = require('../models/activityModel');
-
-// Example in upload route
-await Activity.create({
-  user: req.user._id,
-  action: 'upload',
-  file: file._id
-});
-
+// Search files
 app.get('/files/search', async (req, res) => {
   const { name, type, owner } = req.query;
   const query = {};
@@ -45,37 +71,34 @@ app.get('/files/search', async (req, res) => {
   res.json(files);
 });
 
+// =================== Admin Routes ===================
 
-req.user.storageUsed += file.size;
-await req.user.save();
-
-
-const roleCheck = require('./middleware/roleCheck');
-
+// Admin dashboard
 app.get('/admin-dashboard', roleCheck('admin'), async (req, res) => {
   const users = await User.find();
   const files = await File.find();
-  res.json({ users, files }); // or render an admin EJS/React page
+  res.json({ users, files });
 });
 
+// =================== Notifications ===================
 
-const Notification = require('./models/notificationModel');
+// Create notification (example, call this inside relevant controller)
+async function createNotification(targetUserId, file) {
+  await Notification.create({
+    user: targetUserId,
+    message: `File "${file.name}" was shared/updated`
+  });
+}
 
-await Notification.create({
-  user: targetUserId,
-  message: `File "${file.name}" was shared/updated`
-});
-
-
+// Get notifications
 app.get('/notifications', async (req, res) => {
   const notifications = await Notification.find({ user: req.user._id });
   res.json(notifications);
 });
 
+// =================== Backup & Restore ===================
 
-const fs = require('fs');
-const path = require('path');
-
+// Backup
 app.get('/backup', async (req, res) => {
   const users = await User.find();
   const files = await File.find();
@@ -85,7 +108,7 @@ app.get('/backup', async (req, res) => {
   res.download(filePath);
 });
 
-
+// Restore
 app.post('/restore', async (req, res) => {
   const backupData = JSON.parse(fs.readFileSync('backup.json'));
   await User.deleteMany({});
@@ -95,8 +118,7 @@ app.post('/restore', async (req, res) => {
   res.send('Restore complete');
 });
 
-
-const { body, validationResult } = require('express-validator');
+// =================== Auth with validation ===================
 
 app.post('/register', 
   body('email').isEmail(),
@@ -106,5 +128,8 @@ app.post('/register',
     if (!errors.isEmpty()) {
       return res.status(400).json({ errors: errors.array() });
     }
-    // proceed with registration
+    // proceed with registration logic
+    res.send('User registered');
 });
+
+module.exports = app;
