@@ -71,3 +71,26 @@ app.get('/notifications', async (req, res) => {
   const notifications = await Notification.find({ user: req.user._id });
   res.json(notifications);
 });
+
+
+const fs = require('fs');
+const path = require('path');
+
+app.get('/backup', async (req, res) => {
+  const users = await User.find();
+  const files = await File.find();
+  const backupData = { users, files };
+  const filePath = path.join(__dirname, 'backup.json');
+  fs.writeFileSync(filePath, JSON.stringify(backupData, null, 2));
+  res.download(filePath);
+});
+
+
+app.post('/restore', async (req, res) => {
+  const backupData = JSON.parse(fs.readFileSync('backup.json'));
+  await User.deleteMany({});
+  await File.deleteMany({});
+  await User.insertMany(backupData.users);
+  await File.insertMany(backupData.files);
+  res.send('Restore complete');
+});
