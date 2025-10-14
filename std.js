@@ -9,3 +9,11 @@ app.get('/admin-dashboard', roleCheck('admin'), (req, res) => {
 
 const accessCheck = require('./middleware/accessCheck');
 app.delete('/file/:id', accessCheck, deleteFileHandler);
+
+
+const { getPresignedUrl } = require('./utils/s3');
+
+app.get('/file/download/:key', (req, res) => {
+  const url = getPresignedUrl(req.params.key);
+  res.redirect(url);
+});
