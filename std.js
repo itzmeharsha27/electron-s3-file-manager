@@ -57,3 +57,17 @@ app.get('/admin-dashboard', roleCheck('admin'), async (req, res) => {
   const files = await File.find();
   res.json({ users, files }); // or render an admin EJS/React page
 });
+
+
+const Notification = require('./models/notificationModel');
+
+await Notification.create({
+  user: targetUserId,
+  message: `File "${file.name}" was shared/updated`
+});
+
+
+app.get('/notifications', async (req, res) => {
+  const notifications = await Notification.find({ user: req.user._id });
+  res.json(notifications);
+});
