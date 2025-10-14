@@ -2,10 +2,10 @@ const authRoutes = require('./routes/auth');
 app.use('/', authRoutes);
 
 
-const roleCheck = require('./middleware/roleCheck');
-app.get('/admin-dashboard', roleCheck('admin'), (req, res) => {
-  res.send('Admin dashboard');
-});
+// const roleCheck = require('./middleware/roleCheck');
+// app.get('/admin-dashboard', roleCheck('admin'), (req, res) => {
+//   res.send('Admin dashboard');
+// });
 
 const accessCheck = require('./middleware/accessCheck');
 app.delete('/file/:id', accessCheck, deleteFileHandler);
@@ -48,3 +48,12 @@ app.get('/files/search', async (req, res) => {
 
 req.user.storageUsed += file.size;
 await req.user.save();
+
+
+const roleCheck = require('./middleware/roleCheck');
+
+app.get('/admin-dashboard', roleCheck('admin'), async (req, res) => {
+  const users = await User.find();
+  const files = await File.find();
+  res.json({ users, files }); // or render an admin EJS/React page
+});
