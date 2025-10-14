@@ -44,3 +44,7 @@ app.get('/files/search', async (req, res) => {
   const files = await File.find(query);
   res.json(files);
 });
+
+
+req.user.storageUsed += file.size;
+await req.user.save();
