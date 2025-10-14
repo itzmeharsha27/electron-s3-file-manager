@@ -24,3 +24,12 @@ file.versions.push({
   uploadedBy: req.user._id
 });
 await file.save();
+
+const Activity = require('../models/activityModel');
+
+// Example in upload route
+await Activity.create({
+  user: req.user._id,
+  action: 'upload',
+  file: file._id
+});
