@@ -17,3 +17,10 @@ app.get('/file/download/:key', (req, res) => {
   const url = getPresignedUrl(req.params.key);
   res.redirect(url);
 });
+
+file.versions.push({
+  key: file.key,
+  uploadedAt: new Date(),
+  uploadedBy: req.user._id
+});
+await file.save();
